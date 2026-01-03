@@ -1,0 +1,133 @@
+package frc.robot;
+
+import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.NeutralModeValue;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.DutyCycleOut;
+import com.ctre.phoenix6.controls.Follower;
+import com.ctre.phoenix6.controls.MotionMagicVoltage;
+
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants;
+// import frc.robot.Constants;
+
+public class Elevator extends SubsystemBase {   
+
+    private double setpoint;
+
+    private final TalonFX masterMotor = new TalonFX(Constants.ELEVATOR_MASTER_MOTOR_ID, "CANivore"); 
+    private final TalonFX slaveMotor = new TalonFX(Constants.ELEVATOR_SLAVE_MOTOR_ID, "CANivore");  
+
+
+    private static final Elevator instance = new Elevator();
+    public static Elevator getInstance() {
+        return instance;
+    }
+            
+    public Elevator() {
+                    System.out.println("Elevator Subsystem Online");
+            
+                    var config = new TalonFXConfiguration();
+            
+                     config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+            
+                      //General Configurations
+          var generalSlotConfigs = config.Slot0;
+          generalSlotConfigs.kG = Constants.ELEVATOR_kG;
+          generalSlotConfigs.kS = Constants.ELEVATOR_kS;
+          generalSlotConfigs.kP = Constants.ELEVATOR_kP;
+          generalSlotConfigs.kI = Constants.ELEVATOR_kI;
+          generalSlotConfigs.kD = Constants.ELEVATOR_kD;
+ 
+          //Motion Magic
+         var motionMagicConfigs = config.MotionMagic;
+         motionMagicConfigs.MotionMagicCruiseVelocity = Constants.ELEVATOR_kVelo;
+         motionMagicConfigs.MotionMagicAcceleration = Constants.ELEVATOR_kAccel;
+ 
+          //Current limits
+          var limitConfigs = config.CurrentLimits;
+          limitConfigs.StatorCurrentLimit = Constants.ELEVATOR_CURRENT_LIMIT;
+          limitConfigs.StatorCurrentLimitEnable = true;
+          
+        masterMotor.getConfigurator().apply(config);
+        slaveMotor.getConfigurator().apply(config);
+
+        slaveMotor.setControl(new Follower(masterMotor.getDeviceID(), false));
+    }
+
+    
+
+      public void setElevatorMotorSpeed(double speed) {
+        masterMotor.setControl(new DutyCycleOut(speed));
+        // masterMotor.set(speed);
+        // slaveMotor.set(speed);
+        //This method sets the speed of the elevator motors.
+      }
+
+      public void logElevatorData() {
+        SmartDashboard.getNumber("Elevator Master Encoder", getElevatorMasterEncoder());
+        SmartDashboard.putNumber("Elevator Master Velocity", getElevatorMasterVelocity());
+        SmartDashboard.putNumber("Elevator Slave Encoder", getElevatorSlaveEncoder());
+        SmartDashboard.putNumber("Elevator Slave Velocity", getElevatorSlaveVelocity());
+        SmartDashboard.putNumber("Elevator Desired Setpoint", setpoint);
+
+         // SmartDashboard.putBoolean("Elevator Base Hall Effect Sensor Reading", getElevatorBaseHallEffectSensorReading());
+         SmartDashboard.putBoolean("Elevator In Tolerance?", isElevatorInTolerance());
+         // SmartDashboard.putBoolean("Elevator in HANDOFF Tolerance?", isElevatorInHandoffTolerance());
+ 
+         // SmartDashboard.putBoolean("Elevator Aligned Left?", isElevatorAlignedLeft());
+         // SmartDashboard.putBoolean("Elevator Aligned Right?", isElevatorAlignedRight());
+         //This method logs the elevator data to the SmartDashboard.
+      }
+
+      public void zeroElevator() {
+        masterMotor.setPosition  (0);
+        //This method zeros the elevator encoders.
+      }
+
+      public double getElevatorMasterEncoder() {
+        return masterMotor.getPosition().getValueAsDouble();
+        // This method returns the position of the master elevator motor encoder.
+      }
+
+        public double getElevatorMasterVelocity() {
+            return masterMotor.getVelocity().getValueAsDouble();
+            // This method returns the velocity of the master elevator motor encoder.
+        }
+
+        public double getElevatorSlaveEncoder() {
+            return slaveMotor.getPosition().getValueAsDouble();
+            // This method returns the position of the slave elevator motor encoder.
+        }
+
+        public double getElevatorSlaveVelocity() {
+            return slaveMotor.getVelocity().getValueAsDouble();
+            // This method returns the velocity of the slave elevator motor encoder.
+        }
+
+        public void setElevatorSetpoint(double setpoint) {
+            this.setpoint = setpoint;
+            // This method sets the desired setpoint for the elevator.
+        }
+
+        public void goToElevatorSetpoint() {
+            final MotionMagicVoltage m_request = new MotionMagicVoltage(0).withEnableFOC(true);
+            masterMotor.setControl(m_request.withPosition(this.setpoint));
+            // This method sends the elevator to the desired setpoint using Motion Magic control.
+        }
+
+        public boolean isElevatorInTolerance() {
+            return Math.abs(this.setpoint - getElevatorMasterEncoder()) < Constants.ELEVATOR_SETPOINT_TOLERANCE;
+            // This method checks if the elevator is within the setpoint tolerance.
+        }
+
+
+        @Override
+        public void periodic() {
+            logElevatorData();
+            // This method is called periodically and logs the elevator data.
+        }
+}
+
+
